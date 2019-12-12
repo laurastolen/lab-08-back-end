@@ -17,9 +17,6 @@ app.use(cors());
 const client = new pg.Client(process.env.DATABASE_URL);
 client.on('error', err => console.error(err));
 
-// telling our app to begin serving on PORT
-app.listen(PORT, () => console.log(`listening on port ${PORT}!`));
-
 
 
 // ----------------ROUTES-------------------
@@ -32,33 +29,40 @@ function locationHandler(req, res) {
   let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GEOCODE_API_KEY}`;
 
   let sql = 'SELECT * FROM location WHERE city=$1;';
-  let safeValues = ['seattle'];
-  // let city = req.query.data;
+  let city = req.query.data;
+  let safeValues = [city];
 
   client.query(sql, safeValues)
     .then(results => {
-      console.log(results.rows[0]);
-      res.send(results.rows[0]);
+      console.log(results)
+      console.log(results.rowcount)
+      if (results.rowcount > 0) {
+        res.send(results.rows[0]);
+      } else {
+        console.log('in the else');
+        superagent.get(url)
+          .then(data => {
+            const geoData = data.body;
+            console.log(geoData)
+            // req.query.data is the city name
+            let latitude = geoData.results[0].geometry.location.lat;
+            let longitude = geoData.results[0].geometry.location.lng;
+
+            const locationObj = new Location(city, geoData);
+            let sql = 'INSERT INTO location (city, latitude, longitude) VALUES ($1, $2, $3);';
+            let safeValues = [city, latitude, longitude];
+
+            client.query(sql, safeValues);
+            res.send(locationObj);
+          })
+          .catch((error) => {
+            res.status(500).send(error);
+          });
+
+      }
+
     })
     .catch((err) => console.error(err));
-
-  // superagent.get(url)
-  //   .then(data => {
-  //     const geoData = data.body;
-  //     // req.query.data is the city name
-
-
-  //     let latitude = geoData.results[0].geometry.location.lat;
-  //     let longitude = geoData.results[0].geometry.location.lng;
-
-
-
-  //     const locationObj = new Location(req.query.data, geoData);
-  //     res.send(locationObj);
-  //   })
-  //   .catch((error) => {
-  //     res.status(500).send(error);
-  //   });
 }
 
 // the constructor that takes in the selected part of the served results, and creates a formatted object instance
