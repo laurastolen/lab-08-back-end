@@ -4,6 +4,7 @@
 const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
+const pg = require('pg');
 
 // superagent goes and gets API data for us
 const superagent = require('superagent');
@@ -12,6 +13,9 @@ const superagent = require('superagent');
 const app = express();
 const PORT = process.env.PORT || 3001;
 app.use(cors());
+
+const client = new pg.Client(process.env.DATABASE_URL);
+client.on('error', err => console.error(err));
 
 // telling our app to begin serving on PORT
 app.listen(PORT, () => console.log(`listening on port ${PORT}!`));
@@ -26,15 +30,35 @@ app.get('/location', locationHandler);
 // locationHandler, which contains the superagent.get, which contains .then and .catch. The .then uses the constructor to create location instances
 function locationHandler(req, res) {
   let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GEOCODE_API_KEY}`;
-  superagent.get(url)
-    .then(data => {
-      const geoData = data.body;
-      const locationObj = new Location(req.query.data, geoData);
-      res.send(locationObj);
+
+  let sql = 'SELECT * FROM location WHERE city=$1;';
+  let safeValues = ['seattle'];
+  // let city = req.query.data;
+
+  client.query(sql, safeValues)
+    .then(results => {
+      console.log(results.rows[0]);
+      res.send(results.rows[0]);
     })
-    .catch((error) => {
-      res.status(500).send(error);
-    });
+    .catch((err) => console.error(err));
+
+  // superagent.get(url)
+  //   .then(data => {
+  //     const geoData = data.body;
+  //     // req.query.data is the city name
+
+
+  //     let latitude = geoData.results[0].geometry.location.lat;
+  //     let longitude = geoData.results[0].geometry.location.lng;
+
+
+
+  //     const locationObj = new Location(req.query.data, geoData);
+  //     res.send(locationObj);
+  //   })
+  //   .catch((error) => {
+  //     res.status(500).send(error);
+  //   });
 }
 
 // the constructor that takes in the selected part of the served results, and creates a formatted object instance
@@ -72,3 +96,10 @@ function Weather(forecast, time) {
 app.get('*', (req, res) => {
   res.status(404).send('Oh noes, page not found!');
 });
+
+
+client.connect()
+  .then(() => {
+    app.listen(PORT, () => console.log(`listening on ${PORT}`));
+  })
+  .catch((err) => console.error(err));
