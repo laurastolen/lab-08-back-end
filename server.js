@@ -5,6 +5,12 @@ const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
 const pg = require('pg');
+const client = require('./client');
+
+const Location = require('./lib/location/Location');
+// const locationHandler = require('./lib/location/locationhandler');
+
+const Weather = require('./lib/weather/Weather');
 
 // superagent goes and gets API data for us
 const superagent = require('superagent');
@@ -14,9 +20,6 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 app.use(cors());
 
-const client = new pg.Client(process.env.DATABASE_URL);
-client.on('error', err => console.error(err));
-
 
 
 // ----------------ROUTES-------------------
@@ -24,7 +27,6 @@ client.on('error', err => console.error(err));
 // define location route------------------------------
 app.get('/location', locationHandler);
 
-// locationHandler, which contains the superagent.get, which contains .then and .catch. The .then uses the constructor to create location instances
 function locationHandler(req, res) {
   let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GEOCODE_API_KEY}`;
 
@@ -34,16 +36,14 @@ function locationHandler(req, res) {
 
   client.query(sql, safeValues)
     .then(results => {
-      console.log(results)
-      console.log(results.rowcount)
-      if (results.rowcount > 0) {
-        res.send(results.rows[0]);
+      console.log(results.rows);
+      if (results.rows.length > 0) {
+        return res.send(results.rows[0]);
       } else {
         console.log('in the else');
         superagent.get(url)
           .then(data => {
             const geoData = data.body;
-            console.log(geoData)
             // req.query.data is the city name
             let latitude = geoData.results[0].geometry.location.lat;
             let longitude = geoData.results[0].geometry.location.lng;
@@ -58,23 +58,10 @@ function locationHandler(req, res) {
           .catch((error) => {
             res.status(500).send(error);
           });
-
       }
-
     })
     .catch((err) => console.error(err));
 }
-
-// the constructor that takes in the selected part of the served results, and creates a formatted object instance
-function Location(city, geoData) {
-  // eslint-disable-next-line camelcase
-  this.search_query = city;
-  // eslint-disable-next-line camelcase
-  this.formatted_query = geoData.results[0].formatted_address;
-  this.latitude = geoData.results[0].geometry.location.lat;
-  this.longitude = geoData.results[0].geometry.location.lng;
-}
-
 
 // define weather route--------------------------------
 app.get('/weather', weatherHandler);
@@ -90,15 +77,9 @@ function weatherHandler(req, res) {
 
 }
 
-// constructor to format the served data for our front-end
-function Weather(forecast, time) {
-  this.time = new Date(time * 1000).toDateString();
-  this.forecast = forecast;
-}
-
 // page not found route
 app.get('*', (req, res) => {
-  res.status(404).send('Oh noes, page not found!');
+  res.status(404).send('page not found!');
 });
 
 
