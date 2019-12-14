@@ -29,7 +29,7 @@ app.get('/location', locationHandler);
 function locationHandler(req, res) {
   let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${req.query.data}&key=${process.env.GEOCODE_API_KEY}`;
 
-  let sql = 'SELECT * FROM locations WHERE city=$1;';
+  let sql = 'SELECT * FROM location WHERE city=$1;';
   let city = req.query.data;
   let safeValues = [city];
 
@@ -48,7 +48,7 @@ function locationHandler(req, res) {
             let longitude = geoData.results[0].geometry.location.lng;
 
             const locationObj = new Location(city, geoData);
-            let sql = 'INSERT INTO locations (city, latitude, longitude) VALUES ($1, $2, $3);';
+            let sql = 'INSERT INTO location (city, latitude, longitude) VALUES ($1, $2, $3);';
             let safeValues = [city, latitude, longitude];
 
             client.query(sql, safeValues);
@@ -63,28 +63,28 @@ function locationHandler(req, res) {
 }
 
 // define weather route--------------------------------
-app.get('/weather', weatherHandler);
+// app.get('/weather', weatherHandler);
 
 // weatherHandler, which contains the superagent.get, which contains .then and .catch. The .then uses the constructor to create location instances
-function weatherHandler(req, res) {
-  let url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
+// function weatherHandler(req, res) {
+//   let url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
 
-  let sql = 'SELECT * FROM locations WHERE city=$1;';
-  let city = req.query.data;
-  let safeValues = [city];
+//   let sql = 'SELECT * FROM location WHERE city=$1;';
+//   let city = req.query.data;
+//   let safeValues = [city];
 
-  client.query(sql, safeValues)
-    .then(results => {
-      console.log(results.rows.length)
-    })
+//   client.query(sql, safeValues)
+//     .then(results => {
+//       console.log(results.rows.length)
+//     })
 
-  superagent.get(url)
-    .then(data => {
-      const weatherData = data.body.daily.data.map((value) => new Weather(value.summary, value.time));
-      res.send(weatherData);
-    });
+//   superagent.get(url)
+//     .then(data => {
+//       const weatherData = data.body.daily.data.map((value) => new Weather(value.summary, value.time));
+//       res.send(weatherData);
+//     });
 
-}
+// }
 
 // page not found route
 app.get('*', (req, res) => {
